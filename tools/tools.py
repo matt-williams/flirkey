@@ -17,10 +17,10 @@ def savePPM(filename, data):
 
 def saveC(filename, variable, data):
   with open(filename, "w") as file:
-    file.write("unsigned short %s[] = {\n" % (variable,))
+    file.write("short %s[] = {\n" % (variable,))
     for y in range(0, len(data) / 80):
       for x in range(0, 80):
-        file.write("%u, " % (data[x + y * 80],))
+        file.write("%u, " % (data[x + y * 80] - 32768,))
       file.write("\n")
     file.write("};\n")
 
@@ -50,13 +50,13 @@ def stdDevAll(data):
   return map(lambda (x, y): math.sqrt(x - y), zip(meanOfSquares, squareOfMeans))
 
 def difference(signal, base):
-  return map(lambda (s, b): (s - b) / 2 + 32767, zip(signal, base))
+  return map(lambda (s, b): (s - b) / 2 + 32768, zip(signal, base))
 
 def convolve(a, b):
-  return map(lambda (x, y): ((x - 32767) * (y - 32767)) / 32768 + 32767, zip(a, b))
+  return map(lambda (x, y): ((x - 32768) * (y - 32768)) / 32768 + 32768, zip(a, b))
 
 def adjustForStdDev(data, stdDev):
-  return map(lambda (s, d): math.copysign(max(abs(s - 32767), 0), s - 32767) + 32767, zip(data, stdDev))
+  return map(lambda (s, d): math.copysign(max(abs(s - 32768), 0), s - 32768) + 32768, zip(data, stdDev))
 
 def main():
   null = meanAll([balance(l) for l in loadAllPPM("../training-data/raw/_.*.ppm")])
@@ -77,6 +77,6 @@ def test(null, data):
   img = balance(loadPPM("../training-data/raw/u.00001.ppm"))
   diff = difference(img, null)
   for c in ['a', 'b', 'c', 'd', 'e', 'f', 'i', 'o', 'u']:
-    print c, mean(convolve(diff, data[c])) - 32767
+    print c, mean(convolve(diff, data[c])) - 32768
 
 main()

@@ -17,7 +17,7 @@ def savePPM(filename, data):
 
 def saveC(filename, variable, data):
   with open(filename, "w") as file:
-    file.write("unsigned short %s[] = {\n")
+    file.write("unsigned short %s[] = {\n" % (variable,))
     for y in range(0, len(data) / 80):
       for x in range(0, 80):
         file.write("%u, " % (data[x + y * 80],))

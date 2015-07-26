@@ -74,6 +74,9 @@ def main():
   dataIn = {}
   for c in POSES:
     dataIn[c] = [balance(l) for l in loadAllPPM("../training-data/raw/%c.*.ppm" % (c,))]
+  base = meanAll([item for sublist in [dataIn[p] for p in POSES] for item in sublist])
+  savePPM("data_base.ppm", base)
+  saveC("../training-data/processed/data_base.c", "data_base", base)
 
   data = {}
   for c in POSES:
@@ -81,21 +84,41 @@ def main():
     data_not_c = [dataIn[p] for p in not_c]
     data_not_c = [item for sublist in data_not_c for item in sublist]
     data[c] = difference(meanAll(dataIn[c]), meanAll(data_not_c))
-    #data[c] = adjustForStdDev(difference(meanAll(data[c]), null), stdDevAll(data[c]))
     
     average = mean(data[c]) 
-    print "%c - %u" % (c, average)
     data[c] = [d - (average - 32768) for d in data[c]]
     data[c] = normalize(data[c])
-    print stdDev(data[c])
+
+  iterate(base, data)
+
+  for c in POSES:
     savePPM("../training-data/processed/%c.ppm" % (c,), data[c])
     saveC("../training-data/processed/data_%c.c" % (c,), "data_%c" % (c,), data[c])
-
-  test(data)
   
-def test(data):
-  img = balance(loadPPM("../training-data/raw/u.00001.ppm"))
-  for c in ['a', 'b', 'c', 'd', 'e', 'f', 'i', 'o', 'u']:
-    print c, mean(convolve(img, data[c])) - 32768
+def iterate(base, data):
+  for i in range(1):
+    for c in POSES:
+      imgs = [balance(l) for l in loadAllPPM("../training-data/raw/%c.*.ppm" % (c,))]
+      total_our_score = 0
+      total_top_score = 0
+      for img in imgs:
+        img = difference(img, base)
+        our_score = mean(convolve(img, data[c])) - 32768
+        top_score = 0
+        delta = [0 for x in data[c]]
+        for d in filter(lambda x: x != c, POSES):
+          this_score = mean(convolve(img, data[d])) - 32768
+          top_score = max(top_score, this_score)
+          if this_score > 0:
+            deltas = [(x - 32768) * 0.05 * this_score / our_score for x in difference(img, data[d])]
+            data[d] = map(lambda (b, d): min(max(b - d, 0), 65535), zip(data[d], deltas))
+            delta = map(lambda (b, d): b + d, zip(deltas, delta))
+        total_our_score += our_score
+        total_top_score += top_score
+        data[c] = map(lambda (b, d): min(max(b + d, 0), 65535), zip(data[c], delta))
+        average = mean(data[c]) 
+        data[c] = [d - (average - 32768) for d in data[c]]
+        data[c] = normalize(data[c])
+      print c, (total_our_score / total_top_score)
 
 main()

@@ -44,6 +44,11 @@ def mean(data):
 def meanAll(data):
   return map(mean, zip(*data))
 
+def stdDev(data):
+  meanOfSquares = mean([x * x for x in data])
+  squareOfMeans = mean(data) * mean(data)
+  return math.sqrt(meanOfSquares - squareOfMeans)
+
 def stdDevAll(data):
   meanOfSquares = meanAll([[x * x for x in l] for l in data])
   squareOfMeans = [x * x for x in meanAll(data)]
@@ -56,27 +61,41 @@ def convolve(a, b):
   return map(lambda (x, y): ((x - 32768) * (y - 32768)) / 32768 + 32768, zip(a, b))
 
 def adjustForStdDev(data, stdDev):
-  return map(lambda (s, d): math.copysign(max(abs(s - 32768), 0), s - 32768) + 32768, zip(data, stdDev))
+  #return map(lambda (d, s): ((d - 32768) / (int(s / 255) + 1)) + 32768, zip(data, stdDev))
+  return map(lambda (d, s): math.copysign(max(abs(d - 32768) - s, 0), d - 32768) + 32768, zip(data, stdDev))
+
+def normalize(l):
+  scalar = 4096.0 / stdDev(l)
+  return [(x - 32768) * scalar + 32768 for x in l]
+
+POSES = ['_', 'a', 'b', 'c', 'd', 'e', 'f', 'i', 'o', 'u']
 
 def main():
-  null = meanAll([balance(l) for l in loadAllPPM("../training-data/raw/_.*.ppm")])
-  savePPM("../training-data/processed/_.ppm", null)
-  saveC("../training-data/processed/data_null.c", "data_null", null)
-  
+  dataIn = {}
+  for c in POSES:
+    dataIn[c] = [balance(l) for l in loadAllPPM("../training-data/raw/%c.*.ppm" % (c,))]
+
   data = {}
-  for c in ['a', 'b', 'c', 'd', 'e', 'f', 'i', 'o', 'u']:
-    data[c] = [balance(l) for l in loadAllPPM("../training-data/raw/%c.*.ppm" % (c,))]
-    data[c] = adjustForStdDev(difference(meanAll(data[c]), null), stdDevAll(data[c]))
+  for c in POSES:
+    not_c = filter(lambda x: x != c, POSES)
+    data_not_c = [dataIn[p] for p in not_c]
+    data_not_c = [item for sublist in data_not_c for item in sublist]
+    data[c] = difference(meanAll(dataIn[c]), meanAll(data_not_c))
+    #data[c] = adjustForStdDev(difference(meanAll(data[c]), null), stdDevAll(data[c]))
     
+    average = mean(data[c]) 
+    print "%c - %u" % (c, average)
+    data[c] = [d - (average - 32768) for d in data[c]]
+    data[c] = normalize(data[c])
+    print stdDev(data[c])
     savePPM("../training-data/processed/%c.ppm" % (c,), data[c])
     saveC("../training-data/processed/data_%c.c" % (c,), "data_%c" % (c,), data[c])
 
-  test(null, data)
+  test(data)
   
-def test(null, data):
+def test(data):
   img = balance(loadPPM("../training-data/raw/u.00001.ppm"))
-  diff = difference(img, null)
   for c in ['a', 'b', 'c', 'd', 'e', 'f', 'i', 'o', 'u']:
-    print c, mean(convolve(diff, data[c])) - 32768
+    print c, mean(convolve(img, data[c])) - 32768
 
 main()

@@ -121,4 +121,10 @@ def iterate(base, data):
         data[c] = normalize(data[c])
       print c, (total_our_score / total_top_score)
 
-main()
+#main()
+
+for c in ['_', 'a', 'e', 'i', 'o', 'u']:
+  img = loadPPM("../training-data/drawn/%c.ppm" % (c,))
+  img = [x * 256 for x in img]
+  saveC("../training-data/processed/data_%c.c" % (c,), "data_%c" % (c,), img)
+
